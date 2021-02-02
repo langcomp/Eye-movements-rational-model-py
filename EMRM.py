@@ -20,6 +20,7 @@ class Vocabulary:
             w = row["word"]
             if len(w) == WLEN and all(ch in CHARACTERS for ch in w):
                 words.append((row["word"], row["logfreq"]))
+        assert len(words) >= 2, "Vocabulary requires at least two words of word length %d. You only have %d." % (WLEN, len(words))
         self.words = words
         
         vocab_dict = {}
