@@ -23,3 +23,6 @@ In order to run the scripts provided for demo, you need to ensure that Python 3 
 ---
 ### III. Getting started
 See `demo.py` for examples.
+
+1. Input data: you always need a file that stores vocabulary information. This file should include two columns: `word` and `logfreq`. If your simulation involves comparison with existing fixation data, please check `demoSkipping.py` as an example.
+2. Build your own `OneVirtualReader` that has its own `Vocabulary`, and can perform `OneTrial` and/or `OneBlock` of word identification task.

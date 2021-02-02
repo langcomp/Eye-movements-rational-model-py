@@ -17,7 +17,9 @@ class Vocabulary:
 
         words = []
         for i,row in csv_df.iterrows():
-            words.append((row["word"], row["logfreq"]))
+            w = row["word"]
+            if len(w) == WLEN and all(ch in CHARACTERS for ch in w):
+                words.append((row["word"], row["logfreq"]))
         self.words = words
         
         vocab_dict = {}
