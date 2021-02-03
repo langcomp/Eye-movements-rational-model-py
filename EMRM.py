@@ -20,7 +20,7 @@ class Vocabulary:
             w = row["word"]
             if len(w) == WLEN and all(ch in CHARACTERS for ch in w):
                 words.append((row["word"], row["logfreq"]))
-        assert len(words) >= 2, "Vocabulary requires at least two words of word length %d. You only have %d." % (WLEN, len(words))
+        assert len(words) >= 2, "Class Vocabulary requires at least two words of word length %d. You only have %d." % (WLEN, len(words))
         self.words = words
         
         vocab_dict = {}
@@ -34,6 +34,15 @@ class Vocabulary:
 
         self.dim = self.NCHAR * self.WLEN
         self.vocab_size = len(self.words)
+
+        self.pos_word_chr = self.get_onehot_chr_rep()
+
+    def get_onehot_chr_rep(self):
+        pos_word_chr = np.zeros([self.WLEN, self.vocab_size, self.NCHAR])       
+        for w in self.vocab_dict:
+            for pos, ch in enumerate(w):
+                pos_word_chr[pos, self.vocab_dict[w], self.CHARACTERS.index(ch)] = 1
+        return(pos_word_chr)
 
 class OneVirtualReader:
     def __init__(self, vocabulary, SIGMA_SCALE, LAMBDA_SCALE, lpos_range):
@@ -152,11 +161,15 @@ class OneTrial:
         self.reader = reader
         self.word = word
         self.x = self.reader.vocab.init_x
+        self.elapsed_time = 0
+        self.fix_loc = None
 
     def update_posterior_one_fixation(self, fixation):
         for t in range(fixation.fix_dur):
             delta_x = self.reader.get_delta_x(self.word, fixation.lpos)
             self.x = self.x + delta_x
+        self.elapsed_time += fixation.fix_dur
+        self.fix_loc = fixation.lpos
             
     def update_posterior_scan_path(self, scan_path):
         for fixation in scan_path:
@@ -201,15 +214,37 @@ class OneTrial:
             pos_p (np.ndarray): A vector of the max probab of characters at each position, size (WLEN,).
         """
         pp = logodds2p(self.x)
-        PWC_mat = np.zeros([WLEN, len(vocab), len(CHARACTERS)])
-        
-        for w in vocab:
-            for pos, ch in enumerate(w):
-                PWC_mat[pos, vocab[w], CHARACTERS.index(ch)] = 1
-                
-        PC_mat = np.dot(np.array(pp), PWC_mat)
-        pos_p = np.max(PC_mat, axis = 1)
+        pos_word_chr = self.reader.vocab.pos_word_chr
+        pos_chr = np.dot(np.array(pp), pos_word_chr)
+        pos_p = np.max(pos_chr, axis = 1)
         return(pos_p)
+
+    def before_max_time(self, max_time):
+        return(self.elapsed_time < max_time)
+
+    def alpha_beta_policy(self, alpha, beta, max_time):
+        max_prob_chr = self.get_max_prob_per_pos()
+        prob_current = max_prob_chr[self.fix_loc - 1]
+        
+        while self.before_max_time(max_time) and prob_current < alpha: # keep fixating current fix_loc
+            self.update_posterior_one_fixation(OneFixation(self.fix_loc, 1))
+            max_prob_chr = self.get_max_prob_per_pos()
+            prob_current = max_prob_chr[self.fix_loc - 1]
+
+        left = list(max_prob_chr[:(self.fix_loc-1)])
+        right = list(max_prob_chr[self.fix_loc:])
+
+        if prob_current < alpha: # fail to recognize current character
+            return(None)
+        else:
+            if any(i < beta for i in left): # refixate leftward
+                ind = max([(i,j) for i,j in enumerate(left) if j < beta])[0]
+                return(ind + 1)
+            elif any(i < alpha for i in right): # refixate rightward
+                ind = min([(i,j) for i,j in enumerate(right) if j < alpha])[0]
+                return(ind + self.fix_loc + 1)
+            else: # move to next word
+                return(self.reader.vocab.WLEN + 2)
 
 class OneBlock:
     def __init__(self, reader, trial_list):
@@ -251,3 +286,23 @@ def logodds2p(x):
     x2 = np.append(x,0)
     p = lognormalize(x2)
     return(p)
+
+def add_sac_err_swift_random(target, launch):
+    sigma0 = 0.87
+    sigma1 = 0.084
+    sigma = sigma0 + sigma1*np.abs(target - launch)
+    actpos = np.round(np.random.normal(target, sigma, 1)[0])
+    return(actpos)
+
+def add_sac_err_mrchips(target, launch):
+    sac_len = np.abs(target - launch)
+    sigma = sac_len * 0.3
+    actpos = np.round(np.random.normal(target, sigma, 1)[0])
+    return(actpos)
+
+def add_sac_err_ezr_random(target, launch):
+    sigma0 = 0.5
+    sigma1 = 0.15
+    sigma = sigma0 + sigma1*np.abs(target - launch)
+    actpos = np.round(np.random.normal(target, sigma, 1)[0])
+    return(actpos)
