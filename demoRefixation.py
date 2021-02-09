@@ -1,6 +1,10 @@
-from EMRM import *
+import numpy as np
 import random
 import string
+import EMRM
+from EMRM import Vocabulary, OneVirtualReader, OneFixation, OneTrial
+
+np.random.seed(0)
 
 launch_list = range(-10,0)
 wlen_list = range(3, 11)
@@ -13,21 +17,21 @@ n_trials = 5
 alpha = 0.9
 beta = 0.7
 
-vocab_fn = "./data/example_refix_vocab.csv"
-output_fn = "./refixation_output.txt" 
+vocab_file = "data/example_refix_vocab.csv"
+output_file = "refixation_output.txt" 
 
 output = ";".join(["wlen", "lpos", "launch", "word", "refix_act"]) + "\n"
 for wlen in wlen_list:
-    vocab_wlen = Vocabulary(string.ascii_lowercase,
-                           WLEN = wlen,
-                           csv_fn = vocab_fn)
+    vocab_wlen = Vocabulary(characters = string.ascii_lowercase,
+                            wlen = wlen,
+                            input_file = vocab_file)
     vocab_chr_mat = vocab_wlen.get_onehot_chr_rep()
     
     reader_wlen = OneVirtualReader(vocabulary = vocab_wlen,
-                               SIGMA_SCALE = 1,
-                               LAMBDA_SCALE = 1,
-                               lpos_range = list(launch_list) + list(range(wlen+1))
-                               )
+                                   sigma_scale = 1,
+                                   Lambda_scale = 1,
+                                   lpos_range = list(launch_list) + list(range(wlen+1))
+                                   )
 
     lpos_list = range(1, wlen + 1)
     for launch in launch_list:
@@ -47,9 +51,10 @@ for wlen in wlen_list:
                 elif refix_target == wlen + 2:
                     refix_act = 999
                 else:
-                    refix_act = add_sac_err_swift_random(refix_target, lpos)
+                    refix_act = EMRM.add_sac_err_swift_random(refix_target, lpos)
 
                 output += ";".join([str(wlen), str(lpos), str(launch), trl_word, str(refix_act)]) + "\n"
 
-with open(output_fn, "w") as wf:
+# save output
+with open(output_file, "w") as wf:
     wf.write(output)
