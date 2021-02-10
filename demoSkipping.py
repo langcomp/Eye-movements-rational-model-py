@@ -14,7 +14,7 @@ Ntrial = 50
 fdur = 1
 output_path = "skip_simu_output/"
 
-skip_csv_file = "skip_data/example_skip_vocab.csv"
+skip_csv_file = "data/example_skip_vocab.csv"
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
@@ -23,7 +23,7 @@ def generate_output_filename(path, wlen, sigma_scale, Lamda_scale):
     return(s)
 
 # human data
-human_fix_file = "skip_data/example_skip_human_fix.csv"
+human_fix_file = "data/example_skip_human_fix.csv"
 human_fix = pd.read_csv(human_fix_file)
 
 for wlen in wlen_list:

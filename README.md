@@ -13,12 +13,20 @@ In order to run the scripts provided for demo, you need to ensure that Python 3 
 
 ---
 ### II. Structure
+<pre>
 ├── Eye-movements-rational-model-py
-│   ├── data
-│   ├── requirements.txt
-│   ├── demo.py
-│   └── EMRM.py
-└── README.md
+    ├── README.md
+    ├── requirements.txt
+    ├── EMRM.py
+    ├── demo.py
+    ├── demoRefixation.py
+    ├── demoSkipping.py
+    └── [DIR] data
+        ├── example_vocab.csv
+        ├── example_refix_vocab.csv
+        ├── example_skip_vocab.csv
+        └── example_skip_human_fix.csv
+</pre>
 
 ---
 ### III. Getting started
