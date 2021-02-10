@@ -17,8 +17,8 @@ n_trials = 5
 alpha = 0.9
 beta = 0.7
 
-vocab_file = "data/example_refix_vocab.csv"
-output_file = "refixation_output.txt" 
+vocab_file = "data/example_Refixation_vocab.csv"
+output_file = "Refixation_output.txt" 
 
 output = ";".join(["wlen", "lpos", "launch", "word", "refix_act"]) + "\n"
 for wlen in wlen_list:
