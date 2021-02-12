@@ -12,11 +12,13 @@ sigma_list = [1, 5]
 lambda_list = [5, 10]
 Ntrial = 50
 fdur = 1
-output_path = "Skipping_simu_output/"
 
-skip_csv_file = "data/example_Skipping_vocab.csv"
+output_path = "Skipping_simu_output/"
 if not os.path.exists(output_path):
     os.makedirs(output_path)
+    
+skip_csv_file = "data/example_Skipping_vocab.csv"
+skip_csv_df = pd.read_csv(skip_csv_file)
 
 def generate_output_filename(path, wlen, sigma_scale, Lamda_scale):
     s = "%swlen%d_S%s_L%s.txt" % (path, wlen, str(sigma_scale), str(Lamda_scale))
@@ -29,7 +31,7 @@ human_fix = pd.read_csv(human_fix_file)
 for wlen in wlen_list:
     vocab_wlen= Vocabulary(characters = string.ascii_letters,
                            wlen = wlen,
-                           input_file = skip_csv_file)
+                           input_df = skip_csv_df)
     
     human_fix_wlen = human_fix.loc[human_fix["wlen"] == wlen]
     launch_wlen = list(human_fix_wlen["launch"].unique())

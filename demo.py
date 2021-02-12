@@ -1,5 +1,6 @@
 import string
 import numpy as np
+import pandas as pd
 import EMRM
 from EMRM import Vocabulary, OneVirtualReader, OneTrial, OneFixation, OneBlock
 
@@ -11,9 +12,10 @@ np.random.seed(0)
 ### after fixating the first letter of the word for 5 time steps.
 print("--- Section 1: Quick start ---")
 csv_fn7 = "data/example_vocab.csv"
+csv_df = pd.read_csv(csv_fn7)
 vocab_seven = Vocabulary(characters = string.ascii_lowercase,
                          wlen = 7,
-                         input_file = csv_fn7)
+                         input_df = csv_df)
 
 demo_reader = OneVirtualReader(vocabulary = vocab_seven,
                                sigma_scale = 1,

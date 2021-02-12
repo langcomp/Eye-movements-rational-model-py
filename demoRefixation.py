@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import random
 import string
 import EMRM
@@ -18,13 +19,15 @@ alpha = 0.9
 beta = 0.7
 
 vocab_file = "data/example_Refixation_vocab.csv"
-output_file = "Refixation_output.txt" 
+vocab_file_df = pd.read_csv(vocab_file)
 
+output_file = "Refixation_output.txt" 
 output = ";".join(["wlen", "lpos", "launch", "word", "refix_act"]) + "\n"
+
 for wlen in wlen_list:
     vocab_wlen = Vocabulary(characters = string.ascii_lowercase,
                             wlen = wlen,
-                            input_file = vocab_file)
+                            input_df = vocab_file_df)
     vocab_chr_mat = vocab_wlen.get_onehot_chr_rep()
     
     reader_wlen = OneVirtualReader(vocabulary = vocab_wlen,

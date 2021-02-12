@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from scipy.integrate import quad
 from scipy.linalg import sqrtm
@@ -12,7 +11,7 @@ class Vocabulary:
         characters: A string of all possible characters.
         wlen: An integer indicating word length.
         nchar: An integer indicating number of characters.
-        input_file: A string indicating input file name (csv) of word information.
+        input_df: A pandas DataFrame containing word information.
         words: A list of (word, logfreq) tuples.
         vocab_dict: A dictionary of {word: index} storing index of words.
         init_x: A np.ndarry indicating prior.
@@ -20,19 +19,18 @@ class Vocabulary:
         vocab_size: An integer couunt of all words in vocabulary.
         pos_word_chr: A np.ndarry of size (wlen, vocab_size, nchar) storing one-hot vector of each character at each position for each word.
     """
-    def __init__(self, characters, wlen, input_file):
+    def __init__(self, characters, wlen, input_df):
         """Inits Vocabulary with characters, word length, and input file."""
-        self.characters = "".join(set(characters))
+        self.characters = sorted(set(characters))
         self.wlen = wlen
         self.nchar = len(self.characters)
 
-        csv_df = pd.read_csv(input_file)
-        assert "word" in csv_df.columns, input_file + " should have a column named `word`."
-        assert "logfreq" in csv_df.columns, input_file + " should have a column named `logfreq`."
+        assert "word" in input_df.columns, "input_df should have a column named `word`."
+        assert "logfreq" in input_df.columns, "input_df should have a column named `logfreq`."
 
         self.words = []
         _wordset = set()
-        for _, row in csv_df.iterrows():
+        for _, row in input_df.iterrows():
             w = row["word"]
             if len(w) == wlen and all(ch in characters for ch in w) and (w not in _wordset):
                 self.words.append((row["word"], row["logfreq"]))
