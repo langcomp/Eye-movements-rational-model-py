@@ -20,17 +20,17 @@ vocab_seven = Vocabulary(characters = string.ascii_lowercase,
 demo_reader = OneVirtualReader(vocabulary = vocab_seven,
                                sigma_scale = 1,
                                Lambda_scale = 3,
-                               lpos_range = [1,7]
+                               fix_loc_list = [1,7]
                                )
 
 my_word = "quality"
 demo_trial = OneTrial(demo_reader, word = my_word)
-demo_fixation = OneFixation(lpos = 1, fix_dur = 5)
+demo_fixation = OneFixation(fix_loc = 1, fix_dur = 5)
 
 demo_trial.update_posterior_one_fixation(demo_fixation)
 postH = demo_trial.get_postH()
 ptrue = demo_trial.get_prob_true_word()
-print(f"Fixate `{my_word}` at letter {demo_fixation.lpos} for {demo_fixation.fix_dur} steps: p({my_word}) = {ptrue:.2f}, postH = {postH:.2f}.")
+print(f"Fixate `{my_word}` at letter {demo_fixation.fix_loc} for {demo_fixation.fix_dur} steps: p({my_word}) = {ptrue:.2f}, postH = {postH:.2f}.")
 
 # =================================================================
 # ===================== Check model behaviors =====================
@@ -45,17 +45,16 @@ for sigma in sigma_scale_list:
     reader_tmp = OneVirtualReader(vocabulary = vocab_seven,
                                   sigma_scale = sigma,
                                   Lambda_scale = 3,
-                                  lpos_range = [1,7]
+                                  fix_loc_list = [1,7]
                                   )
     
-    for lpos in reader_tmp.lpos_range:
-        fixation_tmp = OneFixation(lpos = lpos, fix_dur = 5)
+    for fix_loc in reader_tmp.fix_loc_list:
+        fixation_tmp = OneFixation(fix_loc = fix_loc, fix_dur = 5)
         my_trials = [{"word": my_word, "scan_path": [fixation_tmp]}] * 100
 
         demo_block = OneBlock(reader_tmp, my_trials)
         res = demo_block.get_block_metrics()
-        print(f"Fixate {lpos}, sigma_scale = {sigma}: p({my_word}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
-
+        print(f"Fixate {fix_loc}, sigma_scale = {sigma}: p({my_word}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
 
 # 2.2
 print("--- 2.2: Influence of Lambda_scale (overall visual input quality)  ---")
@@ -64,17 +63,16 @@ for Lambda in Lambda_scale_list:
     reader_tmp = OneVirtualReader(vocabulary = vocab_seven,
                                    sigma_scale = 1,
                                    Lambda_scale = Lambda,
-                                   lpos_range = [1,7]
+                                   fix_loc_list = [1,7]
                                    )
     
-    for lpos in reader_tmp.lpos_range:
-        fixation_tmp = OneFixation(lpos = lpos, fix_dur = 5)
+    for fix_loc in reader_tmp.fix_loc_list:
+        fixation_tmp = OneFixation(fix_loc = fix_loc, fix_dur = 5)
         my_trials = [{"word": my_word, "scan_path": [fixation_tmp]}] * 100
 
         demo_block = OneBlock(reader_tmp, my_trials)
         res = demo_block.get_block_metrics()
-        print(f"Fixate {lpos}, Lambda_scale = {Lambda}: p({my_word}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
-
+        print(f"Fixate {fix_loc}, Lambda_scale = {Lambda}: p({my_word}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
 
 ### High freq vs. low freq words
 # 2.3
@@ -86,18 +84,18 @@ for w in hl_words:
 
     demo_block = OneBlock(demo_reader, my_trials)
     res = demo_block.get_block_metrics()
-    print(f"Fixate {lpos}: p({w}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
+    print(f"Fixate {fix_loc}: p({w}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
 
 ### Time
 # 2.4
 print("--- 2.4: As time step increases, probability of true word increases. ---")
 for tm in range(0, 16, 3):
-    fixation_tmp = OneFixation(lpos = 1, fix_dur = tm)
+    fixation_tmp = OneFixation(fix_loc = 1, fix_dur = tm)
     my_trials = [{"word": my_word, "scan_path": [fixation_tmp]}] * 100
 
     demo_block = OneBlock(demo_reader, my_trials)
     res = demo_block.get_block_metrics()
-    print(f"Fixate {lpos} for {tm} time steps: p({my_word}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
+    print(f"Fixate {fix_loc} for {tm} time steps: p({my_word}) = {res['avg_ptrue']:.2f}, postH = {res['avg_postH']:.2f}.")
 
 # =================================================================
 # ================== Run specific simulations =====================

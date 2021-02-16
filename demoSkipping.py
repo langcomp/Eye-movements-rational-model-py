@@ -41,11 +41,11 @@ for wlen in wlen_list:
             tmp_reader = OneVirtualReader(vocabulary = vocab_wlen,
                                           sigma_scale = sigma,
                                           Lambda_scale = Lambda,
-                                          lpos_range = launch_wlen)
+                                          fix_loc_list = launch_wlen)
 
             postH_list = []
             for _, row in human_fix_wlen.iterrows():
-                fix = OneFixation(lpos = row["launch"], fix_dur = fdur)
+                fix = OneFixation(fix_loc = row["launch"], fix_dur = fdur)
                 simu_info = [{"word": row["word"], "scan_path": [fix]}] * Ntrial
                 block = OneBlock(tmp_reader, simu_info)
                 res = block.get_block_metrics()
