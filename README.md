@@ -16,6 +16,9 @@ In order to run the scripts provided for demo, you need to ensure that Python 3 
 <pre>
 ├── Eye-movements-rational-model-py
     ├── README.md
+    ├── [DIR] images
+    │   ├── EMRM_class_structure.png
+    │   └── rational_model.png
     ├── requirements.txt
     ├── EMRM.py
     ├── demo.py
@@ -49,6 +52,15 @@ See `demo.py` for examples of basic behaviors of the model.
 * `demoSkipping.py` is an example of how a skipping model with a frequency prior in [this paper](https://onlinelibrary.wiley.com/doi/full/10.1111/tops.12485) works (not for the purpose of replicating the whole study).
 
 ---
-### V. Miscellaneous
+### V. Structure of EMRM classes
+![Class diagram](./images/EMRM_class_structure.png)
+
+---
+### VI. How the rational model of eye movements works
+See [Bicknell & Levy (2010)](https://dl.acm.org/doi/10.5555/1858681.1858800), [Bicknell & Levy (2012)](http://mindmodeling.org/cogsci2012/papers/0035/paper0035.pdf), [Duan & Bicknell (2017)](https://cogsci.mindmodeling.org/2017/papers/0067/paper0067.pdf), and [Duan & Bicknell (2019)](https://onlinelibrary.wiley.com/doi/full/10.1111/tops.12485) for more details.
+![Rational model of word identification](./images/rational_model.png)
+
+---
+### VII. Miscellaneous
 * You can set up a random seed using `np.random.seed(random_seed)` to make sure your results reproducible.
-* In this model, words of different word length are handled separately. This is because human readers of English generally have access to word length information (as indicated by white space), and word length has complex influence on eye movements in reading (see [this paper](https://www.aclweb.org/anthology/W12-1703.pdf) for more information).
+* In this model, words of different word length are handled separately. This is a simplification to make the modeling easier. Word length has complex influence on eye movements in reading, and human readers may not have perfect information about word length (see [this paper](https://www.aclweb.org/anthology/W12-1703.pdf) for more information). Given this, it's recommended that you only use the model to compare words that all have the same length.

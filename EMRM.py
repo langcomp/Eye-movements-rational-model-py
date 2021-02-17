@@ -18,7 +18,7 @@ class Vocabulary:
         words:
           A list of (word, logfreq) tuples.
         vocab_dict:
-          A dictionary of {word: index} storing index of words.
+          A dict mapping words to the corresponding index.
         init_x:
           A np.ndarry indicating prior.
         dim:
@@ -93,7 +93,7 @@ class OneVirtualReader:
         fix_loc_list:
           A list of numbers indicating landing position.
         c_dict, B_dict, A_dict:
-          Dictionaries storing pre-computed parameters for computing
+          Dictionaries mapping fix_loc to pre-computed parameters for computing
           visual input samples.
     """    
     def __init__(self, vocabulary, sigma_scale, Lambda_scale, fix_loc_list):
@@ -173,12 +173,12 @@ class OneVirtualReader:
         such that delta_x[i] ~ Gaussian(c[i] + B[i,:] * y[i], A*A').
 
         Returns:
-            c_dict (dict): A dictionary for each fix_loc in self.fix_loc_list:
-                {fix_loc (int): c (np.ndarray, size=(n_words-1,))}.
-            B_dict (dict): A dictionary for each fix_loc in self.fix_loc_list:
-                {fix_loc (int): B (np.ndarray, size=(n_words-1, wlen*nchar))}.
-            A_dict (dict): A dictionary for each fix_loc in self.fix_loc_list:
-                {fix_loc (int): A (np.ndarray, size=(n_words-1, wlen*nchar))}.
+            c_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
+              its `c`: {fix_loc: c (np.ndarray, size=(n_words-1,))}.
+            B_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
+              its `B`: {fix_loc: B (np.ndarray, size=(n_words-1, wlen*nchar))}.
+            A_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
+              its `A`: {fix_loc: A (np.ndarray, size=(n_words-1, wlen*nchar))}.
         """
         vec_list = []
         for w, _ in self.vocab.words:
@@ -232,7 +232,7 @@ class OneVirtualReader:
         return(delta_x)
         
 class OneFixation:
-    """ Class of a fixation dwelling at a character position for a period of time.
+    """ Class of a fixation dwelling at a character position for some time.
 
     Attributes:
         fix_loc: A number indicating landing position in terms of characters.
@@ -360,8 +360,8 @@ class OneBlock:
         reader:
           A OneVirtualReader with a vocabulary and some visual properties.
         trial_list:
-          A list of trial information stored in dictionaries.
-          Each dictionary has a `word` and a `scanpath` key.
+          A list of trial information stored in dict, where each dict has a
+          `word` field and a `scanpath` field.
 
           For example: [{"word": "tourists", "scanpath": [OneFixation(1,2),
                                                           OneFixation(4,3)]},
@@ -374,7 +374,7 @@ class OneBlock:
                   character `r`.
     """     
     def __init__(self, reader, trial_list):
-        """Inits OneBlock with a OneVirtualReader and a list of trials."""        
+        """Inits OneBlock with a OneVirtualReader and a list of trials."""
         self.reader = reader
         self.trial_list = trial_list
 
