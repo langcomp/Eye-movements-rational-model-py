@@ -1,6 +1,8 @@
 # Eye-movements-rational-model-py
 
-A Python implementation of a rational model of eye movements for identifying a single word.
+According to rational model of reading, visual word identification is driven by a combination of the specific visual evidence a reader receives and the particularities of a word’s visual neighbors. Computationally, this process can be modeled as a Bayesian belief updating that combines (1) linguistic knowledge, serving as the prior, and (2) uncertain visual input, serving as the likelihood, and generates a posterior distribution of possible identities of the text. This model provides natural explanation for several eye movement phenomena ([Bicknell & Levy, 2010](https://dl.acm.org/doi/10.5555/1858681.1858800); [Bicknell & Levy, 2012](http://mindmodeling.org/cogsci2012/papers/0035/paper0035.pdf)).
+
+In this repository, we present an instance of rational model of eye movements for identifying a single word. For a single word, the Bayesian belief updating process is computationally simple, and can be implemented as a random walk sampling visual input from a multidimensional normal distribution. See [Duan & Bicknell (2017)](https://cogsci.mindmodeling.org/2017/papers/0067/paper0067.pdf), and [Duan & Bicknell (2019)](https://onlinelibrary.wiley.com/doi/full/10.1111/tops.12485) for more details.
 
 ---
 ### I. Prerequisites
