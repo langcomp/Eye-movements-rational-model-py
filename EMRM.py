@@ -1,26 +1,58 @@
 import numpy as np
-import pandas as pd
-
 from scipy.integrate import quad
 from scipy.linalg import sqrtm
 from scipy.stats import entropy
 
 class Vocabulary:
-    def __init__(self, characters, wlen, input_file):
-        self.characters = characters
+    """ Store relevant language knowledge of all true words in a vocabulary.
+
+    Attributes:
+        characters (List[str]):
+          A list of all possible, unique characters (in sorted order).
+        wlen (int):
+          An integer indicating word length.
+        nchar (int):
+          An integer indicating number of characters.
+        input_df (pandas.DataFrame):
+          A pandas DataFrame containing word information.
+        words (List[(word: str, logfreq: float)]):
+          A list of (word, logfreq) tuples.
+        vocab_dict (dict):
+          A dict mapping words to the corresponding index.
+        init_x (np.ndarray):
+          A np.ndarray indicating prior, size (vocab_size - 1,). The i-th
+          element gives the log-odds of the i-th word relative to the last word.
+        dim (int):
+          An integer indicating the dimension of one-hot vector of a word.
+        vocab_size (int):
+          An integer couunt of all words in vocabulary.
+        pos_word_chr (np.ndarray):
+          A np.ndarray of size (wlen, vocab_size, nchar) storing one-hot vector
+          of each character at each position for each word.
+    """
+    def __init__(self, characters, wlen, input_df):
+        """Inits Vocabulary with characters, word length, and input file."""
+        self.characters = sorted(set(characters))
         self.wlen = wlen
         self.nchar = len(self.characters)
 
-        csv_df = pd.read_csv(input_file)
-        assert "word" in csv_df.columns, input_file + " should have a column named `word`."
-        assert "logfreq" in csv_df.columns, input_file + " should have a column named `logfreq`."
+        assert "word" in input_df.columns, \
+               "input_df should have a column named `word`."
+        assert "logfreq" in input_df.columns, \
+               "input_df should have a column named `logfreq`."
 
         self.words = []
-        for _, row in csv_df.iterrows():
+        _wordset = set()
+        for _, row in input_df.iterrows():
             w = row["word"]
-            if len(w) == wlen and all(ch in characters for ch in w):
+            if len(w) == wlen and \
+               all(ch in characters for ch in w) and \
+               (w not in _wordset):
                 self.words.append((row["word"], row["logfreq"]))
-        assert len(self.words) >= 2, "Class Vocabulary requires at least two words of word length %d. You only have %d." % (wlen, len(self.words))
+                _wordset.add(w)
+        assert len(self.words) >= 2, (
+               "Class Vocabulary requires at least two words of word length",
+               "%d. You only have %d." % (wlen, len(self.words)))
         
         self.vocab_dict = {}
         for i, w in enumerate(self.words):
@@ -36,54 +68,89 @@ class Vocabulary:
         self.pos_word_chr = self.get_onehot_chr_rep()
 
     def get_onehot_chr_rep(self):
+        """Get one-hot representation of each character at each position
+           for each word.
+        """
         pos_word_chr = np.zeros([self.wlen, self.vocab_size, self.nchar])       
         for w in self.vocab_dict:
             for pos, ch in enumerate(w):
-                pos_word_chr[pos, self.vocab_dict[w], self.characters.index(ch)] = 1
+                pos_word_chr[pos, \
+                             self.vocab_dict[w], \
+                             self.characters.index(ch)] = 1
         return(pos_word_chr)
 
 class OneVirtualReader:
-    def __init__(self, vocabulary, sigma_scale, Lambda_scale, lpos_range):
+    """ A virtual reader with a vocabulary and some visual properties.
+
+    Attributes:
+        vocabulary (Vocabulary):
+          A Vocabulary class storing language knowledge.
+        sigma_scale (float):
+          A float that controls shape of visual acuity function;
+          small number indicates narrow acuity function.
+        Lambda_scale (float):
+          A float that controls overall visual input quality;
+          small number indicates poor visual input.
+        fix_loc_list (List[float/int]):
+          A list of fixations' positions. A fixation that lands on the space
+          right before the word has a fix_loc of 0, and one that lands on the
+          first character has a fix_loc of 1, etc. A fixation can lands before
+          a word (fix_loc being negative), on a word, or past a word (fix_loc
+          > wlen).
+        c_dict (dict), B_dict (dict), A_dict (dict):
+          Dictionaries mapping fix_loc to pre-computed parameters for computing
+          visual input samples.
+    """    
+    def __init__(self, vocabulary, sigma_scale, Lambda_scale, fix_loc_list):
+        """Inits OneVirtualReader with vocabulary and visual parameters."""
         self.vocab = vocabulary
         self.sigma_scale = sigma_scale
         self.Lambda_scale = Lambda_scale
-        self.lpos_range = lpos_range
-        
-        self.c, self.B, self.A = self.get_cBA()
+        self.fix_loc_list = fix_loc_list
+        self.c_dict, self.B_dict, self.A_dict = self.get_cBA()
 
     def lambda_eccentricity(self, ecc):
         """ Compute eccentricity at a position.
 
         Args:
-            ecc (int/float): A number indicating the distance of a character to fixation (in terms of number of characters).
+            ecc (int/float):
+              A number, distance from fixation position to a character.
 
         Returns:
-            A float, which is the eccentricity at loc according to our visual acuity function.
+            A float, which is the eccentricity at loc according to visual
+            acuity function.
         """
         sigma_L = 2.41 * self.sigma_scale 
         sigma_R = 3.74 * self.sigma_scale    
-        sigma = (sigma_L + sigma_R) / 2 # using a symmetrical, normally-distributed acuity function
+        sigma = (sigma_L + sigma_R) / 2
         
         Z = np.sqrt(2*np.pi)*sigma
-        I = quad(lambda x: 1/Z * np.exp(-x*x/(2*sigma*sigma)), ecc - 0.5, ecc + 0.5)
+        I = quad(lambda x: 1/Z * np.exp(-x*x/(2*sigma*sigma)),
+                 ecc - 0.5, ecc + 0.5)
         return(I[0])       
 
-    def get_inv_SIGMA(self, lpos):
-        """ Compute SIGMA^(-1), a diagonal covariance matrix indicating visual input quality of each letter position relative to fixation position lpos.
+    def get_inv_SIGMA(self, fix_loc):
+        """ Compute SIGMA^(-1), a diagonal covariance matrix indicating visual
+            input quality of each letter position relative to fixation position
+            `fix_loc`.
 
         Args:
-            lpos (int/float): A number indicating the landing position of a fixation.
+            fix_loc (int/float):
+              A number indicating the position of a fixation.
 
         Returns:
-            inv_SIGMA (np.ndarray): A diagnal matrix of size (wlen*nchar, wlen*nchar).
+            inv_SIGMA (np.ndarray):
+              A diagnal matrix of size (wlen*nchar, wlen*nchar).
         """
-        ecc_per_pos = [self.lambda_eccentricity(i - lpos) for i in range(1, self.vocab.wlen + 1)]
+        word_ecc = range(1, self.vocab.wlen + 1)
+        ecc_per_pos = [self.lambda_eccentricity(i - fix_loc) for i in word_ecc]
         diag_ecc  = np.repeat(ecc_per_pos, len(self.vocab.characters))
         inv_SIGMA = self.Lambda_scale * np.diag(diag_ecc)
         return(inv_SIGMA)
 
     def word2visvec(self, word):
-        """ Convert a word into a vector that concatenats one-hot vectors of each character.
+        """ Convert a word into a vector that concatenats one-hot vectors of
+            each character.
 
         Args:
             word (str): A string.
@@ -94,7 +161,9 @@ class OneVirtualReader:
         vec = np.zeros((1, self.vocab.nchar * self.vocab.wlen))
         
         for pos, ch in enumerate(word):
-            assert ch in self.vocab.characters, "Unable to convert word %s to vector: at least one character not in characters" % word
+            assert ch in self.vocab.characters, (
+                "Unable to convert word", word,
+                "to vector: at least one character not in characters.")
             ichar = self.vocab.characters.index(ch)
             vec[0, pos * self.vocab.nchar + ichar] = 1
             
@@ -108,14 +177,13 @@ class OneVirtualReader:
         A = B*SIGMA^(1/2),
         such that delta_x[i] ~ Gaussian(c[i] + B[i,:] * y[i], A*A').
 
-        Args:
-            wordvec_mat (np.ndarray): A matrix of size (n_words, nchar * wlen), where each row represents a vector of a word.
-            inv_SIGMA (np.ndarray): A diagnal matrix indicating visual input quality of each position in a word.
-
         Returns:
-            c (np.ndarray): A matrix of size (n_words - 1,).
-            B (np.ndarray): A matrix of size (n_words - 1, wlen * nchar).
-            A (np.ndarray): A matrix of size (n_words - 1, wlen * nchar).
+            c_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
+              its `c`: {fix_loc: c (np.ndarray, size=(vocab_size - 1,))}.
+            B_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
+              its `B`: {fix_loc: B (np.ndarray,size=(vocab_size-1,wlen*nchar))}.
+            A_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
+              its `A`: {fix_loc: A (np.ndarray,size=(vocab_size-1,wlen*nchar))}.
         """
         vec_list = []
         for w, _ in self.vocab.words:
@@ -126,37 +194,81 @@ class OneVirtualReader:
         ## Wordvec_mat is a v-by-d matrix, each row is the vector of a word
         ## By default, the last word in the wordvec_mat is the baseline word
         yv = wordvec_mat[-1, :] # last word serving as baseline
+        yi = wordvec_mat[:-1, :]
 
-        c, B, A = {},{},{}
-        for lpos in self.lpos_range:
-            inv_SIGMA = self.get_inv_SIGMA(lpos)
-            c[lpos] = np.diag((yv.dot(inv_SIGMA).dot(np.transpose(yv)) -
-                             wordvec_mat[:-1, :].dot(inv_SIGMA).dot(np.transpose(wordvec_mat[:-1, :])))/2)
-            B[lpos] = (wordvec_mat[:-1, :] - yv).dot(inv_SIGMA)
-            A[lpos] = np.dot(B[lpos], sqrtm(np.linalg.inv(inv_SIGMA)))   
+        c_dict, B_dict, A_dict = {},{},{}
+        for fix_loc in self.fix_loc_list:
+            inv_SIGMA = self.get_inv_SIGMA(fix_loc)
+            
+            c = np.diag((yv.dot(inv_SIGMA).dot(np.transpose(yv)) -
+                         yi.dot(inv_SIGMA).dot(np.transpose(yi))) / 2)
+            B = (yi - yv).dot(inv_SIGMA)
+            A = np.dot(B, sqrtm(np.linalg.inv(inv_SIGMA)))
+            
+            c_dict[fix_loc] = c
+            B_dict[fix_loc] = B
+            A_dict[fix_loc] = A
 
-        return(c, B, A)
+        return(c_dict, B_dict, A_dict)
         
-    def get_delta_x(self, word, lpos):
-        lpos_c = self.c[lpos]
-        lpos_B = self.B[lpos]
-        lpos_A = self.A[lpos]
+    def get_delta_x(self, word, fix_loc):
+        """ Get a random visual sample for belief updating if fixating
+            `word` at `fix_loc`.
+
+        Args:
+            word (str): A string.
+            fix_loc (float): A number indicating fixation position.
+
+        Returns:
+            delta_x (np.ndarray):
+              A vector indicating change of posterior logodds after getting a
+              random visual sample, size (vocab_size - 1,).
+        """        
+        fix_loc_c = self.c_dict[fix_loc]
+        fix_loc_B = self.B_dict[fix_loc]
+        fix_loc_A = self.A_dict[fix_loc]
         
         yT = self.word2visvec(word)[0]
-        mu = lpos_c + np.dot(lpos_B, yT)
+        mu = fix_loc_c + np.dot(fix_loc_B, yT)
         
-        sample_dim = lpos_A.shape[1]
+        sample_dim = fix_loc_A.shape[1]
         standard_sample = np.random.normal(0, 1, sample_dim)
-        delta_x = mu + np.dot(lpos_A, standard_sample)
+        delta_x = mu + np.dot(fix_loc_A, standard_sample)
         return(delta_x)
         
 class OneFixation:
-    def __init__(self, lpos, fix_dur):
-        self.lpos = lpos
+    """ Class of a fixation dwelling at a character position for some time.
+
+    Attributes:
+        fix_loc (float/int):
+          A number indicating landing position in terms of characters.
+        fix_dur (int):
+          A number indicating fixation duration in integer time steps.
+    """
+    def __init__(self, fix_loc, fix_dur):
+        self.fix_loc = fix_loc
         self.fix_dur = fix_dur
 
 class OneTrial:
+    """ Class of a trial of identifying a word.
+
+    Attributes:
+        reader (OneVirtualReader):
+          A OneVirtualReader with a vocabulary and some visual properties.
+        word (str):
+          A string indicating the true word to be identified.
+        x (np.ndarray):
+          A vector indicating posterior distribution in log-odds,
+          size (vocab_size - 1,). The i-th element gives the log-odds of the
+          i-th word relative to the last word. To transform x to probabilities
+          of all words in the vocabulary, call function `logodds2p(x)`.
+        elapsed_time (int):
+          An integer indicating time steps elapsed.
+        fix_loc (float/int):
+          A number indicating current fixation location.
+    """    
     def __init__(self, reader, word):
+        """Inits OneTrial with a OneVirtualReader and a word to identify."""
         self.reader = reader
         self.word = word
         
@@ -165,21 +277,31 @@ class OneTrial:
         self.fix_loc = None
 
     def update_posterior_one_fixation(self, fixation):
+        """ Update belief after performing a fixation.
+
+        Args:
+            fixation (OneFixation): A fixation having `fix_loc` and `fix_dur`.
+        """         
         for t in range(fixation.fix_dur):
-            delta_x = self.reader.get_delta_x(self.word, fixation.lpos)
+            delta_x = self.reader.get_delta_x(self.word, fixation.fix_loc)
             self.x = self.x + delta_x
         self.elapsed_time += fixation.fix_dur
-        self.fix_loc = fixation.lpos
+        self.fix_loc = fixation.fix_loc
         
     def update_posterior_scan_path(self, scan_path):
+        """ Update belief after performing a list of fixations.
+
+        Args:
+            scanpath (List[OneFixation]): A list of OneFixation objects.
+            For example, [OneFixation(1,5), OneFixation(6,5), OneFixation(2,2)]
+            indicates a scanpath with 3 fixations on position 1, 6, and 2,
+            respectively.
+        """         
         for fixation in scan_path:
             self.update_posterior_one_fixation(fixation)
             
     def get_postH(self):
         """ Get the posterior entropy of log-odds.
-
-        Args:
-            x (np.ndarray): Log=odds vector, size (n_words-1,).
 
         Returns:
             postH (float): Entropy of posterior.
@@ -191,12 +313,8 @@ class OneTrial:
     def get_prob_true_word(self):
         """ Get the probability of the true word.
 
-        Args:
-            x (np.ndarray): Log=odds vector, size (n_words-1,).
-            index_true_word (int): Index of the true word (or whatever word you care).
-
         Returns:
-            true_p (float): Probability of the word.
+            true_p (float): Probability of the true word.
         """
         pp = logodds2p(self.x)
         index_true_word = self.reader.vocab.vocab_dict[self.word]
@@ -206,12 +324,10 @@ class OneTrial:
     def get_max_prob_per_pos(self):
         """ Get the max probability at each position.
 
-        Args:
-            x (np.ndarray): Log=odds vector, size (n_words-1,).
-            vocab (dict): A dictionary of {word: index_of _word}.
-
         Returns:
-            pos_p (np.ndarray): A vector of the max probab of characters at each position, size (wlen,).
+            pos_p (np.ndarray):
+              A vector of the max probabability of characters at each position,
+              size (wlen,).
         """
         pp = logodds2p(self.x)
         pos_word_chr = self.reader.vocab.pos_word_chr
@@ -225,8 +341,9 @@ class OneTrial:
     def alpha_beta_policy(self, alpha, beta, max_time):
         max_prob_chr = self.get_max_prob_per_pos()
         prob_current = max_prob_chr[self.fix_loc - 1]
-        
-        while self.before_max_time(max_time) and prob_current < alpha: # keep fixating current fix_loc
+
+        # keep fixating current fix_loc until confident        
+        while self.before_max_time(max_time) and prob_current < alpha:
             self.update_posterior_one_fixation(OneFixation(self.fix_loc, 1))
             max_prob_chr = self.get_max_prob_per_pos()
             prob_current = max_prob_chr[self.fix_loc - 1]
@@ -247,7 +364,27 @@ class OneTrial:
                 return(self.reader.vocab.wlen + 2)
 
 class OneBlock:
+    """ Class of a block of trials.
+
+    Attributes:
+        reader (OneVirtualReader):
+          A OneVirtualReader with a vocabulary and some visual properties.
+        trial_list (List[Dict["word": str, "scanpath": List[OneFixation]]]):
+          A list of trial information stored in dict, where each dict has a
+          `word` field and a `scanpath` field.
+
+          For example: [{"word": "tourists", "scanpath": [OneFixation(1,2),
+                                                          OneFixation(4,3)]},
+                        {"word": "are", "scanpath": [OneFixation(2,1)]}]
+          This block has two trials:
+          trial 1 reads word `tourists` with a fixation of 2 steps on 1st
+                  character `t` and a second fixation of 3 steps on 4th
+                  character `r`,
+          trial 2 reads word `are` with a fixation of 1 step on 2nd
+                  character `r`.
+    """     
     def __init__(self, reader, trial_list):
+        """Inits OneBlock with a OneVirtualReader and a list of trials."""
         self.reader = reader
         self.trial_list = trial_list
 
@@ -277,10 +414,10 @@ def logodds2p(x):
     """ Logodds to probability.
 
     Args:
-        x (np.ndarray): Log=odds vector, size (n_words-1,).
+        x (np.ndarray): Log-odds vector, size (vocab_size - 1,).
 
     Returns:
-        p (np.ndarray): Probability of each word, size (n_words,).
+        p (np.ndarray): Probability of each word, size (vocab_size,).
     """
     x2 = np.append(x,0)
     p = lognormalize(x2)

@@ -12,24 +12,26 @@ sigma_list = [1, 5]
 lambda_list = [5, 10]
 Ntrial = 50
 fdur = 1
-output_path = "skip_simu_output/"
 
-skip_csv_file = "skip_data/example_skip_vocab.csv"
+output_path = "Skipping_simu_output/"
 if not os.path.exists(output_path):
     os.makedirs(output_path)
+    
+skip_csv_file = "data/example_Skipping_vocab.csv"
+skip_csv_df = pd.read_csv(skip_csv_file)
 
 def generate_output_filename(path, wlen, sigma_scale, Lamda_scale):
     s = "%swlen%d_S%s_L%s.txt" % (path, wlen, str(sigma_scale), str(Lamda_scale))
     return(s)
 
 # human data
-human_fix_file = "skip_data/example_skip_human_fix.csv"
+human_fix_file = "data/example_Skipping_human_fix.csv"
 human_fix = pd.read_csv(human_fix_file)
 
 for wlen in wlen_list:
     vocab_wlen= Vocabulary(characters = string.ascii_letters,
                            wlen = wlen,
-                           input_file = skip_csv_file)
+                           input_df = skip_csv_df)
     
     human_fix_wlen = human_fix.loc[human_fix["wlen"] == wlen]
     launch_wlen = list(human_fix_wlen["launch"].unique())
@@ -39,11 +41,11 @@ for wlen in wlen_list:
             tmp_reader = OneVirtualReader(vocabulary = vocab_wlen,
                                           sigma_scale = sigma,
                                           Lambda_scale = Lambda,
-                                          lpos_range = launch_wlen)
+                                          fix_loc_list = launch_wlen)
 
             postH_list = []
             for _, row in human_fix_wlen.iterrows():
-                fix = OneFixation(lpos = row["launch"], fix_dur = fdur)
+                fix = OneFixation(fix_loc = row["launch"], fix_dur = fdur)
                 simu_info = [{"word": row["word"], "scan_path": [fix]}] * Ntrial
                 block = OneBlock(tmp_reader, simu_info)
                 res = block.get_block_metrics()
