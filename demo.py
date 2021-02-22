@@ -20,7 +20,7 @@ vocab_seven = Vocabulary(characters = string.ascii_lowercase,
 demo_reader = OneVirtualReader(vocabulary = vocab_seven,
                                sigma_scale = 1,
                                Lambda_scale = 3,
-                               fix_loc_list = [1,7]
+                               fix_loc_list = [1,4,7] # limit possible fixation locations to positions 1, 4, and 7 to reduce computation.
                                )
 
 my_word = "quality"

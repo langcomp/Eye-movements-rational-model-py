@@ -7,26 +7,27 @@ class Vocabulary:
     """ Store relevant language knowledge of all true words in a vocabulary.
 
     Attributes:
-        characters:
+        characters (List[str]):
           A list of all possible, unique characters (in sorted order).
-        wlen:
+        wlen (int):
           An integer indicating word length.
-        nchar:
+        nchar (int):
           An integer indicating number of characters.
-        input_df:
+        input_df (pandas.DataFrame):
           A pandas DataFrame containing word information.
-        words:
+        words (List[(word: str, logfreq: float)]):
           A list of (word, logfreq) tuples.
-        vocab_dict:
+        vocab_dict (dict):
           A dict mapping words to the corresponding index.
-        init_x:
-          A np.ndarry indicating prior.
-        dim:
+        init_x (np.ndarray):
+          A np.ndarray indicating prior, size (vocab_size - 1,). The i-th
+          element gives the log-odds of the i-th word relative to the last word.
+        dim (int):
           An integer indicating the dimension of one-hot vector of a word.
-        vocab_size:
+        vocab_size (int):
           An integer couunt of all words in vocabulary.
-        pos_word_chr:
-          A np.ndarry of size (wlen, vocab_size, nchar) storing one-hot vector
+        pos_word_chr (np.ndarray):
+          A np.ndarray of size (wlen, vocab_size, nchar) storing one-hot vector
           of each character at each position for each word.
     """
     def __init__(self, characters, wlen, input_df):
@@ -82,17 +83,21 @@ class OneVirtualReader:
     """ A virtual reader with a vocabulary and some visual properties.
 
     Attributes:
-        vocabulary:
+        vocabulary (Vocabulary):
           A Vocabulary class storing language knowledge.
-        sigma_scale:
+        sigma_scale (float):
           A float that controls shape of visual acuity function;
           small number indicates narrow acuity function.
-        Lambda_scale:
+        Lambda_scale (float):
           A float that controls overall visual input quality;
           small number indicates poor visual input.
-        fix_loc_list:
-          A list of numbers indicating landing position.
-        c_dict, B_dict, A_dict:
+        fix_loc_list (List[float/int]):
+          A list of fixations' positions. A fixation that lands on the space
+          right before the word has a fix_loc of 0, and one that lands on the
+          first character has a fix_loc of 1, etc. A fixation can lands before
+          a word (fix_loc being negative), on a word, or past a word (fix_loc
+          > wlen).
+        c_dict (dict), B_dict (dict), A_dict (dict):
           Dictionaries mapping fix_loc to pre-computed parameters for computing
           visual input samples.
     """    
@@ -131,7 +136,7 @@ class OneVirtualReader:
 
         Args:
             fix_loc (int/float):
-              A number indicating the landing position of a fixation.
+              A number indicating the position of a fixation.
 
         Returns:
             inv_SIGMA (np.ndarray):
@@ -174,11 +179,11 @@ class OneVirtualReader:
 
         Returns:
             c_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
-              its `c`: {fix_loc: c (np.ndarray, size=(n_words-1,))}.
+              its `c`: {fix_loc: c (np.ndarray, size=(vocab_size - 1,))}.
             B_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
-              its `B`: {fix_loc: B (np.ndarray, size=(n_words-1, wlen*nchar))}.
+              its `B`: {fix_loc: B (np.ndarray,size=(vocab_size-1,wlen*nchar))}.
             A_dict (dict): A dict mapping each fix_loc in self.fix_loc_list to
-              its `A`: {fix_loc: A (np.ndarray, size=(n_words-1, wlen*nchar))}.
+              its `A`: {fix_loc: A (np.ndarray,size=(vocab_size-1,wlen*nchar))}.
         """
         vec_list = []
         for w, _ in self.vocab.words:
@@ -217,7 +222,7 @@ class OneVirtualReader:
         Returns:
             delta_x (np.ndarray):
               A vector indicating change of posterior logodds after getting a
-              random visual sample.
+              random visual sample, size (vocab_size - 1,).
         """        
         fix_loc_c = self.c_dict[fix_loc]
         fix_loc_B = self.B_dict[fix_loc]
@@ -235,8 +240,10 @@ class OneFixation:
     """ Class of a fixation dwelling at a character position for some time.
 
     Attributes:
-        fix_loc: A number indicating landing position in terms of characters.
-        fix_dur: A number indicating fixation duration in integer time steps.
+        fix_loc (float/int):
+          A number indicating landing position in terms of characters.
+        fix_dur (int):
+          A number indicating fixation duration in integer time steps.
     """
     def __init__(self, fix_loc, fix_dur):
         self.fix_loc = fix_loc
@@ -246,15 +253,18 @@ class OneTrial:
     """ Class of a trial of identifying a word.
 
     Attributes:
-        reader:
+        reader (OneVirtualReader):
           A OneVirtualReader with a vocabulary and some visual properties.
-        word:
+        word (str):
           A string indicating the true word to be identified.
-        x:
-          A vector indicating posterior distribution log-odds.
-        elapsed_time:
+        x (np.ndarray):
+          A vector indicating posterior distribution in log-odds,
+          size (vocab_size - 1,). The i-th element gives the log-odds of the
+          i-th word relative to the last word. To transform x to probabilities
+          of all words in the vocabulary, call function `logodds2p(x)`.
+        elapsed_time (int):
           An integer indicating time steps elapsed.
-        fix_loc:
+        fix_loc (float/int):
           A number indicating current fixation location.
     """    
     def __init__(self, reader, word):
@@ -270,7 +280,7 @@ class OneTrial:
         """ Update belief after performing a fixation.
 
         Args:
-            fixation: A OneFixation class having `fix_loc` and `fix_dur`.
+            fixation (OneFixation): A fixation having `fix_loc` and `fix_dur`.
         """         
         for t in range(fixation.fix_dur):
             delta_x = self.reader.get_delta_x(self.word, fixation.fix_loc)
@@ -282,7 +292,7 @@ class OneTrial:
         """ Update belief after performing a list of fixations.
 
         Args:
-            scanpath: A list of OneFixation objects.
+            scanpath (List[OneFixation]): A list of OneFixation objects.
             For example, [OneFixation(1,5), OneFixation(6,5), OneFixation(2,2)]
             indicates a scanpath with 3 fixations on position 1, 6, and 2,
             respectively.
@@ -304,7 +314,7 @@ class OneTrial:
         """ Get the probability of the true word.
 
         Returns:
-            true_p (float): Probability of the word.
+            true_p (float): Probability of the true word.
         """
         pp = logodds2p(self.x)
         index_true_word = self.reader.vocab.vocab_dict[self.word]
@@ -357,9 +367,9 @@ class OneBlock:
     """ Class of a block of trials.
 
     Attributes:
-        reader:
+        reader (OneVirtualReader):
           A OneVirtualReader with a vocabulary and some visual properties.
-        trial_list:
+        trial_list (List[Dict["word": str, "scanpath": List[OneFixation]]]):
           A list of trial information stored in dict, where each dict has a
           `word` field and a `scanpath` field.
 
@@ -404,10 +414,10 @@ def logodds2p(x):
     """ Logodds to probability.
 
     Args:
-        x (np.ndarray): Log=odds vector, size (n_words-1,).
+        x (np.ndarray): Log-odds vector, size (vocab_size - 1,).
 
     Returns:
-        p (np.ndarray): Probability of each word, size (n_words,).
+        p (np.ndarray): Probability of each word, size (vocab_size,).
     """
     x2 = np.append(x,0)
     p = lognormalize(x2)
